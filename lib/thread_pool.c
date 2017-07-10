@@ -56,7 +56,6 @@ gc_thread_func (void *arg)
 
 	if (pool->gctp_shutdown) break;
     }
-    gpr_mu_unlock(&pool->gctp_lock);
 
     pool->gctp_nthreads--;
 
@@ -72,6 +71,7 @@ gc_thread_func (void *arg)
      * Add this thread to list of dead threads so we can join them
      */
     TAILQ_INSERT_TAIL(&pool->gctp_dead_threads, gcthread, gct_threads);
+    gpr_mu_unlock(&pool->gctp_lock);
 }
 
 /*
@@ -145,7 +145,6 @@ grpc_c_thread_pool_add (grpc_c_thread_pool_t *pool,
     callback->gctc_arg = arg;
 
     TAILQ_INSERT_TAIL(&pool->gctp_callbacks_head, callback, gctc_callbacks);
-    gpr_mu_unlock(&pool->gctp_lock);
 
     /*
      * Create a new thread if it is not already created or there are no free
@@ -155,6 +154,7 @@ grpc_c_thread_pool_add (grpc_c_thread_pool_t *pool,
 	struct grpc_c_thread_t *gcthread = malloc(sizeof(struct grpc_c_thread_t));
 	if (gcthread == NULL) {
 	    gpr_log(GPR_ERROR, "Failed to allocate memory to create thread");
+	    gpr_mu_unlock(&pool->gctp_lock);
 	    return 1;
 	}
 	pool->gctp_nthreads++;
@@ -164,6 +164,7 @@ grpc_c_thread_pool_add (grpc_c_thread_pool_t *pool,
 	if (!gpr_thd_new(&gcthread->gct_thread, gc_thread_func, 
 			 (void *)gcthread, &toptions)) {
 	    gpr_log(GPR_ERROR, "Failed to create thread");
+	    gpr_mu_unlock(&pool->gctp_lock);
 	    return 1;
 	}
     } else {
@@ -174,6 +175,7 @@ grpc_c_thread_pool_add (grpc_c_thread_pool_t *pool,
      * Join all finished threads and delete them
      */
     gc_delete_threads(pool);
+    gpr_mu_unlock(&pool->gctp_lock);
 
     return 0;
 }
