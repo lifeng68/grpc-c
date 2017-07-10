@@ -161,6 +161,7 @@ grpc_c_thread_pool_add (grpc_c_thread_pool_t *pool,
 	gcthread->gct_pool = pool;
 	gpr_mu_init(&gcthread->gct_lock);
 	gpr_thd_options toptions = gpr_thd_options_default();
+	gpr_thd_options_set_joinable(&toptions);
 	if (!gpr_thd_new(&gcthread->gct_thread, gc_thread_func, 
 			 (void *)gcthread, &toptions)) {
 	    gpr_log(GPR_ERROR, "Failed to create thread");
